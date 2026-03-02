@@ -1,0 +1,17 @@
+# Ignore artifacts
+.next
+node_modules
+dist
+build
+out
+
+# Ignore files
+.env.local
+.env.*.local
+*.pem
+
+# Ignore folders
+.git
+.vscode
+.idea
+.DS_Store

@@ -1,0 +1,14 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: "class",
+  content: [
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "./convex/**/*.{js,ts}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [
+    require("tailwind-scrollbar")({ nocompatible: true }),
+  ],
+};
