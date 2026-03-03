@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 import {
   UserList,
   MessageList,
@@ -18,8 +19,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function ChatPage() {
   const { user: clerkUser, isLoaded } = useUser();
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [isMobileView, setIsMobileView] = useState<"list" | "chat">("list");
+
+  const [conversationId, setConversationId] =
+    useState<Id<"conversations"> | null>(null);
+
+  const [isMobileView, setIsMobileView] =
+    useState<"list" | "chat">("list");
 
   // Convert Clerk user to our User type
   const user: User | null = clerkUser
@@ -34,24 +39,27 @@ export default function ChatPage() {
       }
     : null;
 
-  // Get messages for current conversation
+  // Get messages
   const messages = useQuery(
     api.messages.getMessages,
-    conversationId ? { conversationId: conversationId as any } : "skip"
+    conversationId ? { conversationId } : "skip"
   ) as Message[] | undefined;
 
   // Get conversation details
   const conversationDetails = useQuery(
     api.messages.getConversationDetails,
-    conversationId ? { conversationId: conversationId as any } : "skip"
+    conversationId ? { conversationId } : "skip"
   );
 
   const sendMessage = useMutation(api.messages.sendMessage);
-  const markConversationAsRead = useMutation(api.messages.markConversationAsRead);
+  const markConversationAsRead =
+    useMutation(api.messages.markConversationAsRead);
 
-  const handleUserClick = (newConversationId: string) => {
-    setConversationId(newConversationId);
-    // Switch to chat view on mobile
+  // FIXED: proper type
+  const handleUserClick = (
+    newConversationId: string
+  ) => {
+    setConversationId(newConversationId as Id<"conversations">);
     setIsMobileView("chat");
   };
 
@@ -59,36 +67,25 @@ export default function ChatPage() {
     setIsMobileView("list");
   };
 
-  const handleSendMessage = async (content: string): Promise<void> => {
+  const handleSendMessage = async (
+    content: string
+  ): Promise<void> => {
     if (!conversationId || !user) return;
 
-    try {
-      await sendMessage({
-        conversationId: conversationId as any,
-        content,
-      });
-    } catch (error) {
-      console.error("Send error:", error);
-      throw error;
-    }
+    await sendMessage({
+      conversationId,
+      content,
+    });
   };
 
   useEffect(() => {
-    const run = async () => {
-      if (!conversationId) {
-        return;
-      }
+    if (!conversationId) return;
 
-      try {
-        await markConversationAsRead({
-          conversationId: conversationId as any,
-        });
-      } catch (error) {
-        console.error("Failed to mark messages as read:", error);
-      }
-    };
-
-    run();
+    markConversationAsRead({
+      conversationId,
+    }).catch((error) =>
+      console.error("Failed to mark messages as read:", error)
+    );
   }, [conversationId, messages?.length, markConversationAsRead]);
 
   if (!isLoaded || !user) {
@@ -104,30 +101,35 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-full bg-gray-50">
-      {/* User List Sidebar - Desktop: always visible, Mobile: only when isMobileView === 'list' */}
+      {/* Sidebar */}
       <div
         className={`w-full md:w-80 border-r border-gray-200 bg-white ${
-          isMobileView === "list" ? "block" : "hidden md:block"
+          isMobileView === "list"
+            ? "block"
+            : "hidden md:block"
         }`}
       >
         <div className="border-b border-gray-200 p-4">
-          <h2 className="text-xl font-bold text-gray-900">Messages</h2>
+          <h2 className="text-xl font-bold text-gray-900">
+            Messages
+          </h2>
         </div>
         <UserList onUserClick={handleUserClick} />
       </div>
 
-      {/* Chat Area - Desktop: always visible, Mobile: only when isMobileView === 'chat' */}
+      {/* Chat Area */}
       <div
         className={`flex-1 flex flex-col ${
-          isMobileView === "chat" ? "block" : "hidden md:flex"
+          isMobileView === "chat"
+            ? "block"
+            : "hidden md:flex"
         }`}
       >
         {conversationId ? (
           <>
-            {/* Chat Header */}
+            {/* Header */}
             <div className="border-b border-gray-200 bg-white p-4">
               <div className="flex items-center gap-3">
-                {/* Back button for mobile */}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -137,29 +139,32 @@ export default function ChatPage() {
                   <ArrowLeft className="w-4 h-4" />
                 </Button>
 
-                {/* User Info */}
                 {conversationDetails?.otherUser && (
                   <>
                     <Avatar className="w-10 h-10">
                       <AvatarImage
-                        src={conversationDetails.otherUser.imageUrl}
-                        alt={conversationDetails.otherUser.username || "User"}
+                        src={
+                          conversationDetails.otherUser
+                            .imageUrl
+                        }
                       />
                       <AvatarFallback>
-                        {conversationDetails.otherUser.firstName?.[0]?.toUpperCase() ||
-                          conversationDetails.otherUser.username?.[0]?.toUpperCase() ||
-                          conversationDetails.otherUser.email?.[0]?.toUpperCase() ||
-                          "U"}
+                        {conversationDetails.otherUser
+                          .username?.[0]
+                          ?.toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
+
                     <div className="flex-1 min-w-0">
                       <h2 className="font-semibold text-gray-900 truncate">
-                        {conversationDetails.otherUser.firstName || conversationDetails.otherUser.lastName
-                          ? `${conversationDetails.otherUser.firstName || ""} ${conversationDetails.otherUser.lastName || ""}`.trim()
-                          : conversationDetails.otherUser.username || "User"}
+                        {conversationDetails.otherUser
+                          .username || "User"}
                       </h2>
                       <p className="text-sm text-gray-500 truncate">
-                        {conversationDetails.otherUser.email}
+                        {
+                          conversationDetails.otherUser
+                            .email
+                        }
                       </p>
                     </div>
                   </>
@@ -167,13 +172,16 @@ export default function ChatPage() {
               </div>
             </div>
 
-            {/* Messages and Input */}
+            {/* Messages */}
             <MessageList
               messages={messages || []}
               currentUser={user}
               isLoading={!messages}
             />
+
+            {/* FIXED: pass conversationId */}
             <MessageInput
+              conversationId={conversationId}
               onSendMessage={handleSendMessage}
               disabled={!conversationId}
               isSending={false}
